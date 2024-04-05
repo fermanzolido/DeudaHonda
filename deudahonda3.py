@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, ttk, simpledialog
 import pyodbc
 import re
 import os
@@ -88,6 +88,36 @@ def actualizar_lista():
     except pyodbc.Error as e:
         messagebox.showerror("Error", f"No se pudieron recuperar los datos de la base de datos: {e.args[1]}")
 
+def actualizar_monto_vencimiento():
+    seleccionado = lista_datos.curselection()
+    if seleccionado:
+        indice = seleccionado[0]
+        texto_seleccionado = lista_datos.get(indice)
+        numero_factura = texto_seleccionado.split(',')[0].split(':')[1].strip()
+        nuevo_monto = monto_vencimiento_entry.get()
+
+        try:
+            conexion_str = (
+                f"DRIVER={{SQL Server}};"
+                f"SERVER={db_server};"
+                f"DATABASE={db_database};"
+                f"UID={db_user};"
+                f"PWD={db_password};"
+                "TIMEOUT=180;"
+            )
+            conn = pyodbc.connect(conexion_str)
+            cursor = conn.cursor()
+            cursor.execute("UPDATE DeudaHonda SET MontoVencimiento=? WHERE NumeroFactura=?", (nuevo_monto, numero_factura))
+            conn.commit()
+            messagebox.showinfo("Éxito", f"El monto de vencimiento para la factura {numero_factura} ha sido actualizado en la base de datos.")
+            conn.close()
+
+            actualizar_lista()
+        except pyodbc.Error as e:
+            messagebox.showerror("Error", f"No se pudo actualizar el monto de vencimiento en la base de datos: {e.args[1]}")
+    else:
+        messagebox.showerror("Error", "Por favor, selecciona un registro de la lista antes de actualizar el monto de vencimiento.")
+  
 def actualizar_estado():
     # Obtener el índice seleccionado en la lista de datos
     seleccionado = lista_datos.curselection()
@@ -185,7 +215,43 @@ def eliminar_registro_por_moneda(numero_factura, moneda):
         actualizar_lista()
     except pyodbc.Error as e:
         messagebox.showerror("Error", f"No se pudo eliminar el registro de la base de datos: {e.args[1]}")
-        
+
+def actualizar_monto_vencimiento():
+    # Obtener el índice seleccionado en la lista de datos
+    seleccionado = lista_datos.curselection()
+    if seleccionado:
+        indice = seleccionado[0]
+        # Obtener el texto completo del elemento seleccionado
+        texto_seleccionado = lista_datos.get(indice)
+        # Obtener el número de factura del texto seleccionado
+        numero_factura = texto_seleccionado.split(',')[0].split(':')[1].strip()
+
+        # Solicitar al usuario el nuevo monto de vencimiento
+        nuevo_monto_vencimiento = simpledialog.askfloat("Actualizar Monto de Vencimiento", f"Ingrese el nuevo monto de vencimiento para la factura {numero_factura}:")
+        if nuevo_monto_vencimiento is not None:
+            try:
+                conexion_str = (
+                    f"DRIVER={{SQL Server}};"
+                    f"SERVER={db_server};"
+                    f"DATABASE={db_database};"
+                    f"UID={db_user};"
+                    f"PWD={db_password};"
+                    "TIMEOUT=180;"
+                )
+                conn = pyodbc.connect(conexion_str)
+                cursor = conn.cursor()
+                cursor.execute("UPDATE DeudaHonda SET MontoVencimiento=? WHERE NumeroFactura=?", (nuevo_monto_vencimiento, numero_factura))
+                conn.commit()
+                messagebox.showinfo("Éxito", f"El monto de vencimiento para la factura {numero_factura} ha sido actualizado a {nuevo_monto_vencimiento}.")
+                conn.close()
+
+                # Actualizar la lista de datos
+                actualizar_lista()
+            except pyodbc.Error as e:
+                messagebox.showerror("Error", f"No se pudo actualizar el monto de vencimiento en la base de datos: {e.args[1]}")
+    else:
+        messagebox.showerror("Error", "Por favor, selecciona un registro de la lista antes de actualizar el monto de vencimiento.")
+
 def calcular_suma_deuda(moneda):
     # Conectar a la base de datos y recuperar la suma de montos de registros con estado "DEUDA" y la moneda especificada
     try:
@@ -308,12 +374,17 @@ scrollbar = ttk.Scrollbar(datos_frame, orient="vertical", command=lista_datos.yv
 scrollbar.pack(side="right", fill="y")
 lista_datos.config(yscrollcommand=scrollbar.set)
 
+actualizar_monto_vencimiento_button = ttk.Button(root, text="Actualizar Monto de Vencimiento", command=actualizar_monto_vencimiento)
+actualizar_monto_vencimiento_button.grid(row=11, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+
+# ... (código existente para crear el marco y la lista para los datos)
+
 # Actualizar la lista de datos al iniciar la aplicación
 actualizar_lista()
 
 # Ajustar el peso de las columnas y filas
 root.grid_columnconfigure(2, weight=1)
-root.grid_rowconfigure(11, weight=1)
+root.grid_rowconfigure(13, weight=1)
 
 # Ejecutar la interfaz
 root.mainloop()
